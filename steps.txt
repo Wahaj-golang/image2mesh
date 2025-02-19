@@ -1,0 +1,7 @@
+step 1. put to PIL or any CV library
+step 2. remove props and text using combination of filters and manual matrix detection (keep original intact for step 4) 
+step 2.5: parse doors using math tricks (literally just need arc detection by drawing a circle from every pixel that is black and detecting dots, slow but works) \
+step 3. parse elements into rudimentary parts and label by pixel (i.e. wall, doors) 
+step 4. "revive" elements based on step 3. e.g. if windows got removed for wall parsing bring them again. this is also the step where hallways without doors are also detected 
+step 5. with final image with metadata throw into blender 
+step 6. generate mesh
