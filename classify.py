@@ -9,7 +9,7 @@ def load_and_preprocess(image_path):
     img_array = np.array(img)
     
     # Convert to binary image (black and white only)
-    _, binary = cv2.threshold(img_array, 127, 255, cv2.THRESH_BINARY_INV)
+    _, binary = cv2.threshold(img_array, 127, 255, cv2.THRESH_BINARY)
     return binary
 
 def detect_lines(binary_image):
@@ -17,17 +17,24 @@ def detect_lines(binary_image):
     lines = cv2.HoughLinesP(
         binary_image,
         rho=1,
-        theta=np.pi/180,
-        threshold=50,
-        minLineLength=20,
+        theta=np.pi/180, 
+        threshold=100,
+        minLineLength=1,
         maxLineGap=10
     )
+
     
     # Convert lines to a more manageable format
     processed_lines = []
+    last_d1 = None
+    last_d2 = None
     if lines is not None:
         for line in lines:
             x1, y1, x2, y2 = line[0]
+            d1 = x2 - x1
+            d2 = y2 - y1
+            # if last_d1 is not None:
+            #     if abs(last_d1)
             # Calculate line length
             length = np.sqrt((x2-x1)**2 + (y2-y1)**2)
             # Calculate angle
@@ -40,7 +47,7 @@ def detect_lines(binary_image):
     
     return processed_lines
 
-def merge_similar_lines(lines, distance_threshold=10, angle_threshold=0.1):
+def merge_similar_lines(lines, d1_threshold=150, angle_threshold=0.017):
     if not lines:
         return []
     
@@ -61,12 +68,12 @@ def merge_similar_lines(lines, distance_threshold=10, angle_threshold=0.1):
             # Check if lines are parallel and close
             angle_diff = abs(line1['angle'] - line2['angle'])
             if angle_diff < angle_threshold or abs(angle_diff - np.pi) < angle_threshold:
-                # Calculate distances between endpoints
+                # Calculate d1s between endpoints
                 points1 = np.array(line1['points'])
                 points2 = np.array(line2['points'])
-                distances = cdist(points1, points2)
+                d1s = cdist(points1, points2)
                 
-                if np.min(distances) < distance_threshold:
+                if np.min(d1s) < d1_threshold:
                     similar_lines.append(line2['points'])
                     used.add(j)
         
@@ -75,8 +82,8 @@ def merge_similar_lines(lines, distance_threshold=10, angle_threshold=0.1):
             all_points = np.array([point for line in similar_lines for point in line])
             if len(all_points) >= 2:
                 # Find the two most distant points
-                distances = cdist(all_points, all_points)
-                i, j = np.unravel_index(distances.argmax(), distances.shape)
+                d1s = cdist(all_points, all_points)
+                i, j = np.unravel_index(d1s.argmax(), d1s.shape)
                 merged_lines.append({
                     'points': [
                         (int(all_points[i][0]), int(all_points[i][1])),
@@ -86,7 +93,7 @@ def merge_similar_lines(lines, distance_threshold=10, angle_threshold=0.1):
     
     return merged_lines
 
-def generate_wall_geometry(line, thickness=0.2, height=8.0):
+def generate_wall_geometry(line, thickness=0.2, height=40.0):
     (x1, y1), (x2, y2) = line['points']
     
     # Scale coordinates from pixels to feet (adjust scale factor as needed)
@@ -146,7 +153,7 @@ def save_geometry_data(geometry_data, output_path):
         json.dump(geometry_data, f, indent=2)
 
 if __name__ == "__main__":
-    image_path = "preprocessed_images/floor_plan_no_text.png"  
+    image_path = "preprocessed_images/masked_floor_image.png"  
     output_path = "generated_geometry_data.json"
     
     geometry_data = process_floor_plan(image_path)
